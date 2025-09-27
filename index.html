@@ -136,27 +136,75 @@
             overflow-y: auto;
         }
         
-        /* Print styles for thermal printer */
+        /* Print styles for 58mm thermal printer */
         @media print {
             body * {
                 visibility: hidden;
+                margin: 0;
+                padding: 0;
             }
+            
             #thermal-receipt, #thermal-receipt * {
                 visibility: visible;
             }
+            
             #thermal-receipt {
                 position: absolute;
                 left: 0;
                 top: 0;
-                width: 58mm; /* Standard thermal paper width */
-                padding: 0;
-                margin: 0;
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
+                width: 58mm !important;
+                max-width: 58mm !important;
+                padding: 2mm !important;
+                margin: 0 !important;
+                font-family: 'Courier New', monospace !important;
+                font-size: 10pt !important;
+                line-height: 1 !important;
+                background: white !important;
+                color: black !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            
+            .receipt-line {
+                width: 100%;
+                display: block;
+                white-space: nowrap;
+                overflow: hidden;
+            }
+            
+            .receipt-header {
+                text-align: center;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+            
+            .receipt-divider {
+                text-align: center;
+                border-bottom: 1px dashed #000;
+                margin: 3px 0;
                 line-height: 1;
             }
+            
+            .receipt-item {
+                display: flex;
+                justify-content: space-between;
+                margin: 2px 0;
+            }
+            
+            .receipt-total {
+                display: flex;
+                justify-content: space-between;
+                font-weight: bold;
+                margin: 5px 0;
+            }
+            
             .no-print {
                 display: none !important;
+            }
+            
+            /* Prevent page breaks in receipt */
+            .receipt-content {
+                page-break-inside: avoid;
             }
         }
         
@@ -173,7 +221,7 @@
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark no-print">
         <div class="container">
             <a class="navbar-brand" href="#">
                 <i class="fas fa-home me-2"></i>Boarding House Billing System
@@ -197,7 +245,7 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container mt-4 no-print">
         <div class="row">
             <!-- Left Column - Billing Form and Summary -->
             <div class="col-lg-8">
@@ -212,7 +260,6 @@
                                     <label for="tenantSelect" class="form-label">Select Tenant</label>
                                     <select class="form-select" id="tenantSelect">
                                         <option value="" selected disabled>Select a tenant</option>
-                                        <!-- Options will be populated by JavaScript -->
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">
@@ -296,14 +343,14 @@
                 <!-- Printer Status -->
                 <div class="card mb-4">
                     <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="fas fa-print me-2"></i>Thermal Printer Setup</h5>
+                        <h5 class="mb-0"><i class="fas fa-print me-2"></i>58mm Thermal Printer</h5>
                     </div>
                     <div class="card-body">
                         <div class="printer-status printer-connected">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="mb-1">Printer Status: <span id="printerStatusText">Ready</span></h6>
-                                    <p class="mb-0 small" id="printerDetails">Desktop thermal printer support enabled</p>
+                                    <p class="mb-0 small" id="printerDetails">Formatted for 58mm thermal paper</p>
                                 </div>
                                 <div id="printerIcon">
                                     <i class="fas fa-print fa-2x text-success"></i>
@@ -313,16 +360,17 @@
                         <div class="mt-3">
                             <h6>Printer Instructions:</h6>
                             <ol class="small">
-                                <li>Ensure your thermal printer is connected and set as default</li>
-                                <li>Load thermal paper into the printer</li>
+                                <li>Ensure your 58mm thermal printer is connected</li>
+                                <li>Load 58mm thermal paper</li>
                                 <li>Calculate a bill and click "Print Receipt"</li>
                                 <li>Select your thermal printer in the print dialog</li>
+                                <li>Set paper size to 58mm or 2.28 inches</li>
                             </ol>
                         </div>
                         
                         <!-- Receipt Preview -->
                         <div class="mt-3">
-                            <h6>Receipt Preview:</h6>
+                            <h6>Receipt Preview (58mm format):</h6>
                             <div class="receipt-preview" id="receiptPreview">
                                 Receipt preview will appear here after calculating a bill.
                             </div>
@@ -379,7 +427,7 @@
     </div>
 
     <!-- Footer -->
-    <footer class="footer text-center mt-5">
+    <footer class="footer text-center mt-5 no-print">
         <div class="container">
             <p class="mb-0">Boarding House Billing System &copy; 2023. All rights reserved.</p>
         </div>
@@ -389,7 +437,7 @@
     <div id="thermal-receipt" style="display: none;"></div>
 
     <!-- Add Tenant Modal -->
-    <div class="modal fade" id="addTenantModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade no-print" id="addTenantModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -595,34 +643,62 @@
                 document.getElementById('receiptPreview').textContent = receiptText;
             }
 
-            // Generate receipt text for thermal printer
+            // Generate receipt text optimized for 58mm thermal printer
             function generateReceiptText(tenant, dueDate, rent, electricity, unpaid, total) {
                 const now = new Date();
                 const receiptDate = now.toLocaleDateString();
-                const receiptTime = now.toLocaleTimeString();
+                const receiptTime = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 
-                // Format for thermal printer (approx 32 characters per line)
+                // Format for 58mm thermal printer (32 characters per line max)
                 let receipt = "";
                 receipt += "=".repeat(32) + "\n";
-                receipt += "      BOARDING HOUSE BILL\n";
+                receipt += centerText("BOARDING HOUSE BILL", 32) + "\n";
                 receipt += "=".repeat(32) + "\n";
                 receipt += `Date: ${receiptDate} ${receiptTime}\n`;
-                receipt += `Due: ${new Date(dueDate).toLocaleDateString()}\n`;
+                receipt += `Due:  ${new Date(dueDate).toLocaleDateString()}\n`;
                 receipt += "-".repeat(32) + "\n";
-                receipt += `Tenant: ${tenant.name}\n`;
-                receipt += `Room: ${tenant.room}\n`;
+                receipt += `Tenant: ${truncateText(tenant.name, 25)}\n`;
+                receipt += `Room:   ${tenant.room}\n`;
                 receipt += "-".repeat(32) + "\n";
-                receipt += "Rent Amount:".padEnd(20) + `₱${rent.toFixed(2)}\n`;
-                receipt += "Electricity:".padEnd(20) + `₱${electricity.toFixed(2)}\n`;
-                receipt += "Unpaid Rent:".padEnd(20) + `₱${unpaid.toFixed(2)}\n`;
+                receipt += formatLine("Rent Amount:", `₱${rent.toFixed(2)}`) + "\n";
+                receipt += formatLine("Electricity:", `₱${electricity.toFixed(2)}`) + "\n";
+                receipt += formatLine("Unpaid Rent:", `₱${unpaid.toFixed(2)}`) + "\n";
                 receipt += "-".repeat(32) + "\n";
-                receipt += "TOTAL DUE:".padEnd(20) + `₱${total.toFixed(2)}\n`;
+                receipt += formatLine("TOTAL DUE:", `₱${total.toFixed(2)}`, true) + "\n";
                 receipt += "=".repeat(32) + "\n";
-                receipt += "        Thank you!\n";
+                receipt += centerText("Thank you!", 32) + "\n";
                 receipt += "=".repeat(32) + "\n";
                 receipt += "\n\n\n"; // Add space for paper cutting
                 
                 return receipt;
+            }
+
+            // Helper function to center text within a line
+            function centerText(text, width) {
+                if (text.length >= width) return text.substring(0, width);
+                const padding = Math.floor((width - text.length) / 2);
+                return " ".repeat(padding) + text + " ".repeat(width - text.length - padding);
+            }
+
+            // Helper function to format a line with label and value
+            function formatLine(label, value, bold = false) {
+                const maxLabelLength = 18;
+                const maxValueLength = 12;
+                
+                let formattedLabel = label.length > maxLabelLength ? 
+                    label.substring(0, maxLabelLength) : 
+                    label.padEnd(maxLabelLength);
+                
+                let formattedValue = value.length > maxValueLength ? 
+                    value.substring(0, maxValueLength) : 
+                    value.padStart(maxValueLength);
+                
+                return formattedLabel + formattedValue;
+            }
+
+            // Helper function to truncate text if too long
+            function truncateText(text, maxLength) {
+                return text.length > maxLength ? text.substring(0, maxLength-3) + "..." : text;
             }
 
             // Print receipt to thermal printer
@@ -634,46 +710,41 @@
                 const unpaid = document.getElementById('summaryUnpaid').textContent;
                 const total = document.getElementById('summaryTotal').textContent;
                 
-                // Get the receipt text
-                const receiptText = document.getElementById('receiptPreview').textContent;
+                // Get the tenant name and room separately
+                const tenantName = tenant.split(' - ')[0];
+                const roomNumber = tenant.split('Room ')[1];
                 
-                // Create printable receipt HTML
+                // Create printable receipt HTML specifically for 58mm paper
                 const receiptHTML = `
-                    <div style="font-family: 'Courier New', monospace; font-size: 12px; line-height: 1; width: 58mm; padding: 5mm;">
-                        <div style="text-align: center; font-weight: bold; margin-bottom: 5px;">
-                            BOARDING HOUSE BILL
+                    <div class="receipt-content">
+                        <div class="receipt-header">BOARDING HOUSE BILL</div>
+                        <div class="receipt-line">Date: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                        <div class="receipt-line">Due:  ${dueDate}</div>
+                        <div class="receipt-divider"></div>
+                        <div class="receipt-line">Tenant: ${tenantName}</div>
+                        <div class="receipt-line">Room:   ${roomNumber}</div>
+                        <div class="receipt-divider"></div>
+                        <div class="receipt-item">
+                            <span>Rent Amount:</span>
+                            <span>₱${rent}</span>
                         </div>
-                        <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 5px;">
-                            ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+                        <div class="receipt-item">
+                            <span>Electricity Bill:</span>
+                            <span>₱${electricity}</span>
                         </div>
-                        <div style="margin-bottom: 5px;">
-                            <strong>Tenant:</strong> ${tenant.split(' - ')[0]}<br>
-                            <strong>Room:</strong> ${tenant.split('Room ')[1]}<br>
-                            <strong>Due Date:</strong> ${dueDate}
+                        <div class="receipt-item">
+                            <span>Unpaid Rent:</span>
+                            <span>₱${unpaid}</span>
                         </div>
-                        <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5px 0; margin: 5px 0;">
-                            <div style="display: flex; justify-content: space-between;">
-                                <span>Rent Amount:</span>
-                                <span>₱${rent}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span>Electricity Bill:</span>
-                                <span>₱${electricity}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span>Unpaid Rent:</span>
-                                <span>₱${unpaid}</span>
-                            </div>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px;">
+                        <div class="receipt-divider"></div>
+                        <div class="receipt-total">
                             <span>TOTAL DUE:</span>
                             <span>₱${total}</span>
                         </div>
-                        <div style="text-align: center; border-top: 1px dashed #000; padding-top: 5px; margin-top: 5px;">
-                            Thank you!
-                        </div>
-                        <div style="text-align: center; margin-top: 10px;">
-                            <small>Generated by Boarding House Billing System</small>
+                        <div class="receipt-divider"></div>
+                        <div class="receipt-header">Thank you!</div>
+                        <div class="receipt-line" style="text-align: center; font-size: 8pt; margin-top: 5px;">
+                            Generated by Boarding House Billing System
                         </div>
                     </div>
                 `;
@@ -681,8 +752,66 @@
                 // Set the receipt content
                 document.getElementById('thermal-receipt').innerHTML = receiptHTML;
                 
-                // Trigger print
-                window.print();
+                // Trigger print with 58mm paper size
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Print Receipt</title>
+                        <style>
+                            @media print {
+                                body {
+                                    width: 58mm;
+                                    margin: 0;
+                                    padding: 2mm;
+                                    font-family: 'Courier New', monospace;
+                                    font-size: 10pt;
+                                    line-height: 1;
+                                }
+                                .receipt-line {
+                                    width: 100%;
+                                    display: block;
+                                    white-space: nowrap;
+                                }
+                                .receipt-header {
+                                    text-align: center;
+                                    font-weight: bold;
+                                    margin-bottom: 5px;
+                                }
+                                .receipt-divider {
+                                    text-align: center;
+                                    border-bottom: 1px dashed #000;
+                                    margin: 3px 0;
+                                }
+                                .receipt-item {
+                                    display: flex;
+                                    justify-content: space-between;
+                                    margin: 2px 0;
+                                }
+                                .receipt-total {
+                                    display: flex;
+                                    justify-content: space-between;
+                                    font-weight: bold;
+                                    margin: 5px 0;
+                                }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${receiptHTML}
+                        <script>
+                            window.onload = function() {
+                                window.print();
+                                setTimeout(function() {
+                                    window.close();
+                                }, 100);
+                            };
+                        <\/script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
             }
 
             // Add new tenant
@@ -711,7 +840,8 @@
                     
                     // Reset form and close modal
                     document.getElementById('addTenantForm').reset();
-                    bootstrap.Modal.getInstance(document.getElementById('addTenantModal')).hide();
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addTenantModal'));
+                    modal.hide();
                     
                     alert('Tenant added successfully!');
                 } else {
