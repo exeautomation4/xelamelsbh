@@ -97,16 +97,6 @@
             box-shadow: 0 0 0 0.25rem rgba(58, 97, 134, 0.25);
         }
         
-        .blink {
-            animation: blink 2s infinite;
-        }
-        
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        
         .empty-state {
             text-align: center;
             padding: 30px;
@@ -146,6 +136,30 @@
             overflow-y: auto;
         }
         
+        /* Print styles for thermal printer */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #thermal-receipt, #thermal-receipt * {
+                visibility: visible;
+            }
+            #thermal-receipt {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 58mm; /* Standard thermal paper width */
+                padding: 0;
+                margin: 0;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                line-height: 1;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+        
         @media (max-width: 768px) {
             .display-4 {
                 font-size: 2rem;
@@ -153,10 +167,6 @@
             
             .card {
                 margin-bottom: 15px;
-            }
-            
-            .receipt-preview {
-                font-size: 10px;
             }
         }
     </style>
@@ -274,7 +284,7 @@
                                 <i class="fas fa-check-circle me-2"></i>Mark as Paid
                             </button>
                             <button id="printBtn" class="btn btn-primary" disabled>
-                                <i class="fas fa-print me-2"></i>Print via Bluetooth
+                                <i class="fas fa-print me-2"></i>Print Receipt
                             </button>
                         </div>
                     </div>
@@ -286,24 +296,28 @@
                 <!-- Printer Status -->
                 <div class="card mb-4">
                     <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="fas fa-print me-2"></i>POS58mm Printer Status</h5>
+                        <h5 class="mb-0"><i class="fas fa-print me-2"></i>Thermal Printer Setup</h5>
                     </div>
                     <div class="card-body">
-                        <div class="printer-status printer-disconnected" id="printerStatus">
+                        <div class="printer-status printer-connected">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <h6 class="mb-1">Printer Status: <span id="printerStatusText">Disconnected</span></h6>
-                                    <p class="mb-0 small" id="printerDetails">Not connected to any printer</p>
+                                    <h6 class="mb-1">Printer Status: <span id="printerStatusText">Ready</span></h6>
+                                    <p class="mb-0 small" id="printerDetails">Desktop thermal printer support enabled</p>
                                 </div>
                                 <div id="printerIcon">
-                                    <i class="fas fa-times-circle fa-2x text-danger"></i>
+                                    <i class="fas fa-print fa-2x text-success"></i>
                                 </div>
                             </div>
                         </div>
-                        <div class="d-grid gap-2">
-                            <button id="connectPrinterBtn" class="btn btn-outline-info">
-                                <i class="fas fa-bluetooth me-2"></i>Connect to Printer
-                            </button>
+                        <div class="mt-3">
+                            <h6>Printer Instructions:</h6>
+                            <ol class="small">
+                                <li>Ensure your thermal printer is connected and set as default</li>
+                                <li>Load thermal paper into the printer</li>
+                                <li>Calculate a bill and click "Print Receipt"</li>
+                                <li>Select your thermal printer in the print dialog</li>
+                            </ol>
                         </div>
                         
                         <!-- Receipt Preview -->
@@ -371,6 +385,9 @@
         </div>
     </footer>
 
+    <!-- Hidden thermal receipt for printing -->
+    <div id="thermal-receipt" style="display: none;"></div>
+
     <!-- Add Tenant Modal -->
     <div class="modal fade" id="addTenantModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -412,8 +429,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize with empty tenants list
             let tenants = [];
-            let printerDevice = null;
-            let printerCharacteristic = null;
 
             // Initialize the app
             function initApp() {
@@ -426,12 +441,6 @@
                 const dueDate = new Date(today);
                 dueDate.setDate(today.getDate() + 7);
                 document.getElementById('dueDate').valueAsDate = dueDate;
-                
-                // Check if printer was previously connected
-                const savedPrinter = localStorage.getItem('printerDevice');
-                if (savedPrinter) {
-                    updatePrinterStatus('Connected to saved printer', true);
-                }
             }
 
             // Populate tenant dropdown
@@ -586,13 +595,13 @@
                 document.getElementById('receiptPreview').textContent = receiptText;
             }
 
-            // Generate receipt text for POS58mm printer
+            // Generate receipt text for thermal printer
             function generateReceiptText(tenant, dueDate, rent, electricity, unpaid, total) {
                 const now = new Date();
                 const receiptDate = now.toLocaleDateString();
                 const receiptTime = now.toLocaleTimeString();
                 
-                // Format for 58mm thermal printer (approx 32 characters per line)
+                // Format for thermal printer (approx 32 characters per line)
                 let receipt = "";
                 receipt += "=".repeat(32) + "\n";
                 receipt += "      BOARDING HOUSE BILL\n";
@@ -616,105 +625,64 @@
                 return receipt;
             }
 
-            // Connect to Bluetooth printer
-            async function connectToPrinter() {
-                try {
-                    // Check if Bluetooth is available
-                    if (!navigator.bluetooth) {
-                        alert('Bluetooth is not supported in this browser. Please use Chrome or Edge.');
-                        return;
-                    }
-                    
-                    // Request Bluetooth device with serial port profile
-                    printerDevice = await navigator.bluetooth.requestDevice({
-                        filters: [
-                            { namePrefix: 'POS' }, // Common POS printer prefixes
-                            { namePrefix: '58mm' },
-                            { namePrefix: 'BT' }
-                        ],
-                        optionalServices: [
-                            '00001101-0000-1000-8000-00805f9b34fb' // Serial Port Profile
-                        ]
-                    });
-                    
-                    // Connect to the GATT server
-                    const server = await printerDevice.gatt.connect();
-                    
-                    // Get the primary service
-                    const service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
-                    
-                    // Get the characteristic for writing data
-                    printerCharacteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
-                    
-                    // Update UI
-                    updatePrinterStatus(`Connected to ${printerDevice.name || 'POS58mm Printer'}`, true);
-                    
-                    // Save printer info for future use
-                    localStorage.setItem('printerDevice', JSON.stringify({
-                        id: printerDevice.id,
-                        name: printerDevice.name
-                    }));
-                    
-                } catch (error) {
-                    console.error('Bluetooth connection error:', error);
-                    updatePrinterStatus('Failed to connect to printer', false);
-                    alert('Failed to connect to printer. Please make sure your POS58mm printer is turned on and in pairing mode.');
-                }
-            }
-
-            // Update printer status UI
-            function updatePrinterStatus(message, connected) {
-                const statusElement = document.getElementById('printerStatus');
-                const statusText = document.getElementById('printerStatusText');
-                const printerDetails = document.getElementById('printerDetails');
-                const printerIcon = document.getElementById('printerIcon');
+            // Print receipt to thermal printer
+            function printReceipt() {
+                const tenant = document.getElementById('summaryTenant').textContent;
+                const dueDate = document.getElementById('summaryDueDate').textContent;
+                const rent = document.getElementById('summaryRent').textContent;
+                const electricity = document.getElementById('summaryElectricity').textContent;
+                const unpaid = document.getElementById('summaryUnpaid').textContent;
+                const total = document.getElementById('summaryTotal').textContent;
                 
-                if (connected) {
-                    statusElement.className = 'printer-status printer-connected';
-                    statusText.textContent = 'Connected';
-                    printerDetails.textContent = message;
-                    printerIcon.innerHTML = '<i class="fas fa-check-circle fa-2x text-success"></i>';
-                } else {
-                    statusElement.className = 'printer-status printer-disconnected';
-                    statusText.textContent = 'Disconnected';
-                    printerDetails.textContent = message;
-                    printerIcon.innerHTML = '<i class="fas fa-times-circle fa-2x text-danger"></i>';
-                }
-            }
-
-            // Print via Bluetooth
-            async function printViaBluetooth() {
-                if (!printerCharacteristic) {
-                    alert('Please connect to a printer first.');
-                    return;
-                }
+                // Get the receipt text
+                const receiptText = document.getElementById('receiptPreview').textContent;
                 
-                try {
-                    const tenant = document.getElementById('summaryTenant').textContent;
-                    const dueDate = document.getElementById('summaryDueDate').textContent;
-                    const rent = document.getElementById('summaryRent').textContent;
-                    const electricity = document.getElementById('summaryElectricity').textContent;
-                    const unpaid = document.getElementById('summaryUnpaid').textContent;
-                    const total = document.getElementById('summaryTotal').textContent;
-                    
-                    // Get the receipt text
-                    const receiptText = document.getElementById('receiptPreview').textContent;
-                    
-                    // Convert text to bytes (UTF-8 encoding)
-                    const encoder = new TextEncoder();
-                    const data = encoder.encode(receiptText);
-                    
-                    // Send data to printer
-                    await printerCharacteristic.writeValue(data);
-                    
-                    alert('Receipt sent to printer successfully!');
-                    
-                } catch (error) {
-                    console.error('Print error:', error);
-                    alert('Failed to print. Please check printer connection.');
-                    updatePrinterStatus('Printer connection lost', false);
-                    printerCharacteristic = null;
-                }
+                // Create printable receipt HTML
+                const receiptHTML = `
+                    <div style="font-family: 'Courier New', monospace; font-size: 12px; line-height: 1; width: 58mm; padding: 5mm;">
+                        <div style="text-align: center; font-weight: bold; margin-bottom: 5px;">
+                            BOARDING HOUSE BILL
+                        </div>
+                        <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 5px;">
+                            ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+                        </div>
+                        <div style="margin-bottom: 5px;">
+                            <strong>Tenant:</strong> ${tenant.split(' - ')[0]}<br>
+                            <strong>Room:</strong> ${tenant.split('Room ')[1]}<br>
+                            <strong>Due Date:</strong> ${dueDate}
+                        </div>
+                        <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5px 0; margin: 5px 0;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Rent Amount:</span>
+                                <span>₱${rent}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Electricity Bill:</span>
+                                <span>₱${electricity}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Unpaid Rent:</span>
+                                <span>₱${unpaid}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px;">
+                            <span>TOTAL DUE:</span>
+                            <span>₱${total}</span>
+                        </div>
+                        <div style="text-align: center; border-top: 1px dashed #000; padding-top: 5px; margin-top: 5px;">
+                            Thank you!
+                        </div>
+                        <div style="text-align: center; margin-top: 10px;">
+                            <small>Generated by Boarding House Billing System</small>
+                        </div>
+                    </div>
+                `;
+                
+                // Set the receipt content
+                document.getElementById('thermal-receipt').innerHTML = receiptHTML;
+                
+                // Trigger print
+                window.print();
             }
 
             // Add new tenant
@@ -759,11 +727,9 @@
             
             document.getElementById('markPaidBtn').addEventListener('click', markAsPaid);
             
-            document.getElementById('printBtn').addEventListener('click', printViaBluetooth);
+            document.getElementById('printBtn').addEventListener('click', printReceipt);
             
             document.getElementById('saveTenantBtn').addEventListener('click', addNewTenant);
-            
-            document.getElementById('connectPrinterBtn').addEventListener('click', connectToPrinter);
             
             document.getElementById('tenantSelect').addEventListener('change', function() {
                 const tenantId = parseInt(this.value);
